@@ -14,6 +14,7 @@ module Camcorder
       @klass = klass
       @init_args = args
       @recorder = recorder
+      puts "INIT side effects: #{@init_args}"
       _add_side_effects(@init_args)
     end
     
@@ -22,11 +23,19 @@ module Camcorder
     end
     
     def _add_side_effects(args)
-      @side_effects = _hash_with_side_effects(args)
+      @side_effects = _hash_with_side_effects(args).tap do |x|
+        puts "SETTING side effects to '#{x}'"
+      end
     end
     
     def _hash_args(args)
-      Digest::MD5.hexdigest(YAML.dump(args))
+      # libyaml 0.2.5 helpfully removes trailing whitespace.  Previous versions
+      # did not do this.  Previous recordings were made involving hashes that
+      # included that stray whitespace.
+      #
+      # This here hack holds things together, barely, for now.
+      ick = YAML.dump(args).gsub(/^\-$/, '- ')
+      Digest::MD5.hexdigest(ick)
     end
     
     def _hash_with_side_effects(args)
@@ -65,6 +74,7 @@ module Camcorder
     def self.methods_with_side_effects(*names)
       names.each do |name|
         define_method name do |*args|
+          puts "ADDING side effects for '#{name}': #{args}"
           _add_side_effects(args)
           method_missing(name, *args)
         end
